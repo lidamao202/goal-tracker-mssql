@@ -1,0 +1,337 @@
+openapi: 3.0.3
+info:
+  title: Team Daily Goal Tracker API
+  description: REST API for tracking team goals and moods
+  version: 1.0.0
+  contact:
+    name: Goal Tracker Team
+
+servers:
+  - url: http://localhost:5003/api
+    description: Local development server
+
+tags:
+  - name: Dashboard
+    description: Aggregated dashboard data
+  - name: Members
+    description: Team member operations
+  - name: Goals
+    description: Goal operations
+
+paths:
+  /dashboard:
+    get:
+      tags:
+        - Dashboard
+      summary: Get complete dashboard data
+      description: Returns all team members with their goals and aggregated statistics
+      operationId: getDashboard
+      responses:
+        '200':
+          description: Dashboard data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+
+  /members:
+    get:
+      tags:
+        - Members
+      summary: Get all team members
+      description: Returns list of all team members with their current mood
+      operationId: getMembers
+      responses:
+        '200':
+          description: List of team members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TeamMember'
+
+  /members/{id}/mood:
+    patch:
+      tags:
+        - Members
+      summary: Update member mood
+      description: Updates the current mood of a team member
+      operationId: updateMemberMood
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Team member ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMoodRequest'
+      responses:
+        '200':
+          description: Mood updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMember'
+        '404':
+          description: Team member not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Invalid mood value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /goals:
+    post:
+      tags:
+        - Goals
+      summary: Create a new goal
+      description: Adds a new goal for a team member
+      operationId: createGoal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGoalRequest'
+      responses:
+        '201':
+          description: Goal created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          description: Invalid request (empty description or invalid member ID)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Team member not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /goals/{id}:
+    delete:
+      tags:
+        - Goals
+      summary: Delete a goal
+      description: Removes a goal from the system
+      operationId: deleteGoal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Goal ID
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Goal deleted successfully
+        '404':
+          description: Goal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /goals/{id}/toggle:
+    patch:
+      tags:
+        - Goals
+      summary: Toggle goal completion
+      description: Toggles the completion status of a goal
+      operationId: toggleGoal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Goal ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Goal toggled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '404':
+          description: Goal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    Mood:
+      type: integer
+      enum: [0, 1, 2, 3, 4]
+      description: |
+        Mood values:
+        - 0: Happy (😀)
+        - 1: Content (😊)
+        - 2: Neutral (😐)
+        - 3: Sad (😞)
+        - 4: Stressed (😤)
+
+    TeamMember:
+      type: object
+      required:
+        - id
+        - name
+        - mood
+      properties:
+        id:
+          type: integer
+          description: Unique identifier
+          example: 1
+        name:
+          type: string
+          maxLength: 100
+          description: Team member's display name
+          example: Alice
+        mood:
+          $ref: '#/components/schemas/Mood'
+        goals:
+          type: array
+          items:
+            $ref: '#/components/schemas/Goal'
+          description: List of goals for this member
+
+    Goal:
+      type: object
+      required:
+        - id
+        - teamMemberId
+        - description
+        - isCompleted
+      properties:
+        id:
+          type: integer
+          description: Unique identifier
+          example: 1
+        teamMemberId:
+          type: integer
+          description: ID of the team member this goal belongs to
+          example: 1
+        description:
+          type: string
+          maxLength: 200
+          description: Goal description text
+          example: Complete project documentation
+        isCompleted:
+          type: boolean
+          description: Whether the goal is completed
+          example: false
+
+    DashboardResponse:
+      type: object
+      required:
+        - members
+        - stats
+      properties:
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMember'
+          description: All team members with their goals
+        stats:
+          $ref: '#/components/schemas/DashboardStats'
+
+    DashboardStats:
+      type: object
+      required:
+        - totalGoals
+        - completedGoals
+        - completionPercentage
+        - moodDistribution
+      properties:
+        totalGoals:
+          type: integer
+          description: Total number of goals across all members
+          example: 10
+        completedGoals:
+          type: integer
+          description: Number of completed goals
+          example: 4
+        completionPercentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Percentage of goals completed (rounded)
+          example: 40
+        moodDistribution:
+          type: array
+          items:
+            $ref: '#/components/schemas/MoodCount'
+          description: Count of members per mood type
+        dominantMood:
+          $ref: '#/components/schemas/Mood'
+          description: Most common mood among team members
+
+    MoodCount:
+      type: object
+      required:
+        - mood
+        - count
+      properties:
+        mood:
+          $ref: '#/components/schemas/Mood'
+        count:
+          type: integer
+          description: Number of members with this mood
+          example: 3
+
+    CreateGoalRequest:
+      type: object
+      required:
+        - teamMemberId
+        - description
+      properties:
+        teamMemberId:
+          type: integer
+          description: ID of the team member to add the goal to
+          example: 1
+        description:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Goal description text
+          example: Complete project documentation
+
+    UpdateMoodRequest:
+      type: object
+      required:
+        - mood
+      properties:
+        mood:
+          $ref: '#/components/schemas/Mood'
+
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Error description
+          example: Team member not found
+        code:
+          type: string
+          description: Error code for client handling
+          example: NOT_FOUND
